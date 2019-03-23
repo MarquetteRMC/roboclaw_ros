@@ -1,11 +1,10 @@
 <?xml version="1.0"?>
 <launch>
 
-    <arg name="dev" default="/dev/ttyACM0"/>
-    <arg name="baud" default="115200"/>
+    <arg name="dev" default="/dev/ttyACM1"/>
+    <arg name="baud" default="38400"/>
     <arg name="address" default="128"/>
-    <arg name="max_speed" default="2.0"/>
-    <arg name="ticks_per_meter" default="4342.2"/>
+    <arg name="max_speed" default="4"/>
     <arg name="base_width" default="0.315"/>
     <arg name="run_diag" default="true"/>
 
@@ -14,7 +13,6 @@
         <param name="~baud" value="$(arg baud)"/>
         <param name="~address" value="$(arg address)"/>
         <param name="~max_speed" value="$(arg max_speed)"/>
-        <param name="~ticks_per_meter" value="$(arg ticks_per_meter)"/>
         <param name="~base_width" value="$(arg base_width)"/>
     </node>
 
