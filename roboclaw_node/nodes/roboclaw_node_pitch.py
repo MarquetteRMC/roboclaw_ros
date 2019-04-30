@@ -119,7 +119,7 @@ class Node:
             r_time.sleep()
 
     def pub_enc_values(self):
-            pitch_state = Twist()
+            pitch_state = JointState()
             pitch_state.header = Header()
             pitch_state.header.stamp = rospy.Time.now()
             pitch_state.name = ['m1', 'm2']

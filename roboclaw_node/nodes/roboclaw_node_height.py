@@ -120,7 +120,7 @@ class Node:
             r_time.sleep()
 
     def pub_enc_values(self):
-            height_state = Twist()
+            height_state = JointState()
             height_state.header = Header()
             height_state.header.stamp = rospy.Time.now()
             height_state.name = ['m1', 'm2']
