@@ -10,6 +10,7 @@ import rospy
 import tf
 from geometry_msgs.msg import Quaternion, Twist
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import JointState
 
 __author__ = "bwbazemore@uga.edu (Brad Bazemore)"
 
