@@ -86,8 +86,8 @@ class Node:
 
         self.last_set_speed_time = rospy.get_rostime()
 
-        rospy.Subscriber("cmd_vel", Twist, self.cmd_vel_callback)
-        pub = rospy.Publisher("roboclaw/pitch", JointState)
+        rospy.Subscriber("roboclaw/pitch_vel", Twist, self.cmd_vel_callback)
+        self.pitch_pub = rospy.Publisher("roboclaw/pitch", JointState)
         rospy.sleep(1)
 
         rospy.logdebug("dev %s", dev_name)
@@ -98,7 +98,7 @@ class Node:
 
     def run(self):
         rospy.loginfo("Starting motor drive")
-        r_time = rospy.Rate(10)
+        r_time = rospy.Rate(30)
         while not rospy.is_shutdown():
 
             if (rospy.get_rostime() - self.last_set_speed_time).to_sec() > 1:
@@ -110,42 +110,38 @@ class Node:
                     rospy.logerr("Could not stop")
                     rospy.logdebug(e)
 
-            # TODO need find solution to the OSError11 looks like sync problem with serial
             status1 = None
             status2 = None
 
-            
+            self.pub_enc_values()
 
             r_time.sleep()
 
+    def pub_enc_values(self):
+            pitch_state = Twist()
+            pitch_state.header = Header()
+            pitch_state.header.stamp = rospy.Time.now()
+            pitch_state.name = ['m1', 'm2']
+            enc1 = roboclaw.ReadEncM1(self.address)
+            enc2 = roboclaw.ReadEncM2(self.address)
+            pitch_state.position = [enc1,enc2]
+            pitch_state.velocity = []
+            pitch_state.effort = []
+            self.pitch_pub.publish(pitch_state)
+            rospy.logdebug("vals m1:%d , m2:%d", enc1, enc2)
+
+
     def cmd_vel_callback(self, twist):
         self.last_set_speed_time = rospy.get_rostime()
-
-        linear_x = twist.linear.x
-
-        print(linear_x)
-        
-        if (linear_x != 10.0 and linear_x != -10.0):
-            linear_x = 0
-        if linear_x > self.MAX_SPEED:
-            linear_x = self.MAX_SPEED
-        if linear_x < -self.MAX_SPEED:
-            linear_x = -self.MAX_SPEED
-        
-        #Will need to add pot feedback into this
-        #vr = linear_x + twist.angular.z * self.BASE_WIDTH / 2.0  # m/s
-        #vl = linear_x - twist.angular.z * self.BASE_WIDTH / 2.0
-
-        #vr_ticks = int(vr * self.TICKS_PER_METER)  # ticks/s
-        #vl_ticks = int(vl * self.TICKS_PER_METER)
-
-        rospy.logdebug("speed %d", linear_x)
+        m1 = twist.linear.x
+        m2 = twist.linear.y
+        rospy.logdebug("speed m1:%d , m2:%d", m1, m2)
 
         try:
             if int(linear_x ) is 0:
                 roboclaw.SpeedM1M2(self.address, 0,0)
             else:
-                roboclaw.SpeedM1M2(self.address, int(linear_x), int(linear_x))
+                roboclaw.SpeedM1M2(self.address, int(m1), int(m2))
                 
         except OSError as e:
             rospy.logwarn("SpeedM1M2 on roboclaw1 OSError: %d", e.errno)
