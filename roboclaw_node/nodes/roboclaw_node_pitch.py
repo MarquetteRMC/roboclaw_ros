@@ -10,6 +10,7 @@ import rospy
 import tf
 from geometry_msgs.msg import Quaternion, Twist
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import JointState
 
 __author__ = "bwbazemore@uga.edu (Brad Bazemore)"
 
@@ -86,14 +87,13 @@ class Node:
         self.last_set_speed_time = rospy.get_rostime()
 
         rospy.Subscriber("cmd_vel", Twist, self.cmd_vel_callback)
-
+        pub = rospy.Publisher("roboclaw/pitch", JointState)
         rospy.sleep(1)
 
         rospy.logdebug("dev %s", dev_name)
         rospy.logdebug("baud %d", baud_rate)
         rospy.logdebug("address %d", self.address)
         rospy.logdebug("max_speed %f", self.MAX_SPEED)
-        #rospy.logdebug("ticks_per_meter %f", self.TICKS_PER_METER)
         rospy.logdebug("base_width %f", self.BASE_WIDTH)
 
     def run(self):
@@ -113,6 +113,9 @@ class Node:
             # TODO need find solution to the OSError11 looks like sync problem with serial
             status1 = None
             status2 = None
+
+            
+
             r_time.sleep()
 
     def cmd_vel_callback(self, twist):
