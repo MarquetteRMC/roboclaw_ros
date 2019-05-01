@@ -126,11 +126,11 @@ class Node:
             height_state.name = ['m1', 'm2']
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
-            height_state.position = [enc1[1],enc2[1]]
+            height_state.position = [float(enc1[1]),float(enc2[1])]
             height_state.velocity = []
             height_state.effort = []
             self.height_pub.publish(height_state)
-            rospy.loginfo("m1:%d m2:%d",enc1[1], enc2[1])
+            print("height m1:%d m2:%d",enc1[1], enc2[1])
 
     def cmd_vel_callback(self, twist):
         self.last_set_speed_time = rospy.get_rostime()

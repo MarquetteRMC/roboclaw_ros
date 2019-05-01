@@ -125,18 +125,18 @@ class Node:
             pitch_state.name = ['m1', 'm2']
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
-            pitch_state.position = [enc1[1],enc2[1]]
+            pitch_state.position = [float(enc1[1]),float(enc2[1])]
             pitch_state.velocity = []
             pitch_state.effort = []
             self.pitch_pub.publish(pitch_state)
-            rospy.loginfo("vals m1:%d , m2:%d", enc1[1], enc2[1])
+            print("pitch " + pitch_state.position)
 
 
     def cmd_vel_callback(self, twist):
         self.last_set_speed_time = rospy.get_rostime()
         m1 = twist.linear.x
         m2 = twist.linear.y
-        rospy.logdebug("speed m1:%d , m2:%d", m1, m2)
+        rospy.loginfo("speed m1:%d , m2:%d", m1, m2)
 
         try:
             if int(m1) is 0 and int(m2) is 0:
