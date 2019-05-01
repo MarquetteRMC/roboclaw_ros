@@ -88,7 +88,7 @@ class Node:
         self.last_set_speed_time = rospy.get_rostime()
 
         rospy.Subscriber("roboclaw/height_vel", Twist, self.cmd_vel_callback)
-        self.height_pub = rospy.Publisher("roboclaw/height", JointState)
+        self.height_pub = rospy.Publisher("roboclaw/height", JointState, queue_size=10)
 
         rospy.sleep(1)
 
@@ -105,7 +105,7 @@ class Node:
         while not rospy.is_shutdown():
 
             if (rospy.get_rostime() - self.last_set_speed_time).to_sec() > 1:
-                rospy.loginfo("Did not get command for 1 second, stopping")
+                #rospy.loginfo("Did not get command for 1 second, stopping")
                 try:
                     roboclaw.ForwardM1(self.address, 0)
                     roboclaw.ForwardM2(self.address, 0)
@@ -126,11 +126,11 @@ class Node:
             height_state.name = ['m1', 'm2']
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
-            height_state.position = [enc1,enc2]
+            height_state.position = [enc1[1],enc2[1]]
             height_state.velocity = []
             height_state.effort = []
             self.height_pub.publish(height_state)
-            rospy.logdebug("vals m1:%d , m2:%d", enc1, enc2)
+            rospy.loginfo("m1:%d m2:%d",enc1[1], enc2[1])
 
     def cmd_vel_callback(self, twist):
         self.last_set_speed_time = rospy.get_rostime()
@@ -139,7 +139,7 @@ class Node:
         rospy.logdebug("speed m1:%d , m2:%d", m1, m2)
 
         try:
-            if int(linear_x ) is 0:
+            if int(m1) is 0 and int(m2) is 0:
                 roboclaw.SpeedM1M2(self.address, 0,0)
             else:
                 roboclaw.SpeedM1M2(self.address, int(m1), int(m2))

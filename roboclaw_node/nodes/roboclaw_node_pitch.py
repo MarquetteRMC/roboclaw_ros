@@ -88,7 +88,7 @@ class Node:
         self.last_set_speed_time = rospy.get_rostime()
 
         rospy.Subscriber("roboclaw/pitch_vel", Twist, self.cmd_vel_callback)
-        self.pitch_pub = rospy.Publisher("roboclaw/pitch", JointState)
+        self.pitch_pub = rospy.Publisher("roboclaw/pitch", JointState, queue_size=10)
         rospy.sleep(1)
 
         rospy.logdebug("dev %s", dev_name)
@@ -103,7 +103,7 @@ class Node:
         while not rospy.is_shutdown():
 
             if (rospy.get_rostime() - self.last_set_speed_time).to_sec() > 1:
-                rospy.loginfo("Did not get command for 1 second, stopping")
+                #rospy.loginfo("Did not get command for 1 second, stopping")
                 try:
                     roboclaw.ForwardM1(self.address, 0)
                     roboclaw.ForwardM2(self.address, 0)
@@ -125,11 +125,11 @@ class Node:
             pitch_state.name = ['m1', 'm2']
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
-            pitch_state.position = [enc1,enc2]
+            pitch_state.position = [enc1[1],enc2[1]]
             pitch_state.velocity = []
             pitch_state.effort = []
             self.pitch_pub.publish(pitch_state)
-            rospy.logdebug("vals m1:%d , m2:%d", enc1, enc2)
+            rospy.loginfo("vals m1:%d , m2:%d", enc1[1], enc2[1])
 
 
     def cmd_vel_callback(self, twist):
@@ -139,7 +139,7 @@ class Node:
         rospy.logdebug("speed m1:%d , m2:%d", m1, m2)
 
         try:
-            if int(linear_x ) is 0:
+            if int(m1) is 0 and int(m2) is 0:
                 roboclaw.SpeedM1M2(self.address, 0,0)
             else:
                 roboclaw.SpeedM1M2(self.address, int(m1), int(m2))
