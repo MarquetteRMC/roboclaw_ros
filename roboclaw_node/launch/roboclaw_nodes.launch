@@ -1,0 +1,6 @@
+<launch>
+
+<node pkg="roboclaw_node" type="roboclaw_node_pitch.py" name="roboclaw_node_pitch" />
+<node pkg="roboclaw_node" type="roboclaw_node_height.py" name="roboclaw_node_height" />
+
+</launch>

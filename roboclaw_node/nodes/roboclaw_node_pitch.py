@@ -39,7 +39,7 @@ class Node:
         rospy.init_node("roboclaw_node_pitch")
         rospy.on_shutdown(self.shutdown)
         rospy.loginfo("Connecting to roboclaw")
-        dev_name = rospy.get_param("~dev", "/dev/ttyACM1") #may need to change the usb port
+        dev_name = rospy.get_param("~dev", "/dev/ttyACM2") #may need to change the usb port
 
         baud_rate = int(rospy.get_param("~baud", "38400")) #may need to change the baud rate. see roboclaw usermanual
 
@@ -129,7 +129,7 @@ class Node:
             pitch_state.velocity = []
             pitch_state.effort = []
             self.pitch_pub.publish(pitch_state)
-            print("pitch " + pitch_state.position)
+            print(enc1,enc2)
 
 
     def cmd_vel_callback(self, twist):

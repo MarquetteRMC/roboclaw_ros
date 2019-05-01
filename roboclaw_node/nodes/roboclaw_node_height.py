@@ -39,7 +39,7 @@ class Node:
         rospy.init_node("roboclaw_node_height")
         rospy.on_shutdown(self.shutdown)
         rospy.loginfo("Connecting to roboclaw")
-        dev_name = rospy.get_param("~dev", "/dev/ttyACM2") #may need to change the usb port
+        dev_name = rospy.get_param("~dev", "/dev/ttyACM3") #may need to change the usb port
 
         baud_rate = int(rospy.get_param("~baud", "38400")) #may need to change the baud rate. see roboclaw usermanual
 
@@ -101,7 +101,7 @@ class Node:
 
     def run(self):
         rospy.loginfo("Starting motor drive")
-        r_time = rospy.Rate(30)
+        r_time = rospy.Rate(10)
         while not rospy.is_shutdown():
 
             if (rospy.get_rostime() - self.last_set_speed_time).to_sec() > 1:
@@ -127,27 +127,15 @@ class Node:
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
             height_state.position = [float(enc1[1]),float(enc2[1])]
-            height_state.velocity = []
-            height_state.effort = []
             self.height_pub.publish(height_state)
-            print("height m1:%d m2:%d",enc1[1], enc2[1])
+            print(enc1, enc2)
 
     def cmd_vel_callback(self, twist):
         self.last_set_speed_time = rospy.get_rostime()
         m1 = twist.linear.x
         m2 = twist.linear.y
-        rospy.logdebug("speed m1:%d , m2:%d", m1, m2)
-
-        try:
-            if int(m1) is 0 and int(m2) is 0:
-                roboclaw.SpeedM1M2(self.address, 0,0)
-            else:
-                roboclaw.SpeedM1M2(self.address, int(m1), int(m2))
-                
-        except OSError as e:
-            rospy.logwarn("SpeedM1M2 on roboclaw1 OSError: %d", e.errno)
-            rospy.logdebug(e)
-            
+        print(m1,m2)
+        roboclaw.SpeedM1M2(self.address, int(m1), int(m2))
 
     # TODO: Need to make this work when more than one error is raised
     def check_vitals(self, stat):
