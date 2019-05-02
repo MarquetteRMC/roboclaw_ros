@@ -39,7 +39,7 @@ class Node:
         rospy.init_node("roboclaw_node_pitch")
         rospy.on_shutdown(self.shutdown)
         rospy.loginfo("Connecting to roboclaw")
-        dev_name = rospy.get_param("~dev", "/dev/ttyACM1") #may need to change the usb port
+        dev_name = rospy.get_param("~dev", "/dev/ttyACM3") #may need to change the usb port
 
         baud_rate = int(rospy.get_param("~baud", "38400")) #may need to change the baud rate. see roboclaw usermanual
 
@@ -81,6 +81,7 @@ class Node:
 
 
         self.MAX_SPEED = float(rospy.get_param("~max_speed", "127"))
+        self.MAX_DUTY = float(rospy.get_param("~max_duty", "32767"))
         
         self.BASE_WIDTH = float(rospy.get_param("~base_width", "0.315")) #will need to figure this out. Ask eric
 
@@ -89,21 +90,20 @@ class Node:
 
         rospy.Subscriber("roboclaw/pitch_vel", Twist, self.cmd_vel_callback)
         self.pitch_pub = rospy.Publisher("roboclaw/pitch", JointState, queue_size=10)
+        
         rospy.sleep(1)
 
-        rospy.logdebug("dev %s", dev_name)
-        rospy.logdebug("baud %d", baud_rate)
-        rospy.logdebug("address %d", self.address)
-        rospy.logdebug("max_speed %f", self.MAX_SPEED)
-        rospy.logdebug("base_width %f", self.BASE_WIDTH)
+        rospy.loginfo("dev %s", dev_name)
+        rospy.loginfo("baud %d", baud_rate)
+        rospy.loginfo("address %d", self.address)
+        rospy.loginfo("max_speed %f", self.MAX_SPEED)
 
     def run(self):
         rospy.loginfo("Starting motor drive")
-        r_time = rospy.Rate(30)
+        r_time = rospy.Rate(5)
         while not rospy.is_shutdown():
 
             if (rospy.get_rostime() - self.last_set_speed_time).to_sec() > 1:
-                #rospy.loginfo("Did not get command for 1 second, stopping")
                 try:
                     roboclaw.ForwardM1(self.address, 0)
                     roboclaw.ForwardM2(self.address, 0)
@@ -126,28 +126,20 @@ class Node:
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
             pitch_state.position = [float(enc1[1]),float(enc2[1])]
-            pitch_state.velocity = []
-            pitch_state.effort = []
             self.pitch_pub.publish(pitch_state)
-            print("pitch " + pitch_state.position)
+            print(enc1,enc2)
 
 
     def cmd_vel_callback(self, twist):
+        #twist 127 full forward, -127 full backward
         self.last_set_speed_time = rospy.get_rostime()
         m1 = twist.linear.x
         m2 = twist.linear.y
-        rospy.loginfo("speed m1:%d , m2:%d", m1, m2)
+        roboclaw.DutyM1M2(self.address,self.twist_to_duty(m1),self.twist_to_duty(m2))
+        rospy.loginfo("pitch m1:%d , m2:%d", m1, m2)
 
-        try:
-            if int(m1) is 0 and int(m2) is 0:
-                roboclaw.SpeedM1M2(self.address, 0,0)
-            else:
-                roboclaw.SpeedM1M2(self.address, int(m1), int(m2))
-                
-        except OSError as e:
-            rospy.logwarn("SpeedM1M2 on roboclaw1 OSError: %d", e.errno)
-            rospy.logdebug(e)
-            
+    def twist_to_duty(self, twist):
+        return (twist / self.MAX_SPEED) * self.MAX_DUTY
 
     # TODO: Need to make this work when more than one error is raised
     def check_vitals(self, stat):

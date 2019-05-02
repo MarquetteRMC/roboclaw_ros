@@ -81,9 +81,7 @@ class Node:
 
 
         self.MAX_SPEED = float(rospy.get_param("~max_speed", "127"))
-        
-        self.BASE_WIDTH = float(rospy.get_param("~base_width", "0.315")) #will need to figure this out. Ask eric
-
+        self.MAX_DUTY = float(rospy.get_param("~max_duty", "32767"))
 
         self.last_set_speed_time = rospy.get_rostime()
 
@@ -92,20 +90,17 @@ class Node:
 
         rospy.sleep(1)
 
-        rospy.logdebug("dev %s", dev_name)
-        rospy.logdebug("baud %d", baud_rate)
-        rospy.logdebug("address %d", self.address)
-        rospy.logdebug("max_speed %f", self.MAX_SPEED)
-        #rospy.logdebug("ticks_per_meter %f", self.TICKS_PER_METER)
-        rospy.logdebug("base_width %f", self.BASE_WIDTH)
+        rospy.loginfo("dev %s", dev_name)
+        rospy.loginfo("baud %d", baud_rate)
+        rospy.loginfo("address %d", self.address)
+        rospy.loginfo("max_speed %f", self.MAX_SPEED)
 
     def run(self):
         rospy.loginfo("Starting motor drive")
-        r_time = rospy.Rate(30)
+        r_time = rospy.Rate(5)
         while not rospy.is_shutdown():
 
             if (rospy.get_rostime() - self.last_set_speed_time).to_sec() > 1:
-                #rospy.loginfo("Did not get command for 1 second, stopping")
                 try:
                     roboclaw.ForwardM1(self.address, 0)
                     roboclaw.ForwardM2(self.address, 0)
@@ -113,10 +108,11 @@ class Node:
                     rospy.logerr("Could not stop")
                     rospy.logdebug(e)
 
-            # TODO need find solution to the OSError11 looks like sync problem with serial
             status1 = None
             status2 = None
+
             self.pub_enc_values()
+            
             r_time.sleep()
 
     def pub_enc_values(self):
@@ -127,27 +123,19 @@ class Node:
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
             height_state.position = [float(enc1[1]),float(enc2[1])]
-            height_state.velocity = []
-            height_state.effort = []
             self.height_pub.publish(height_state)
-            print("height m1:%d m2:%d",enc1[1], enc2[1])
+            print(enc1, enc2)
 
     def cmd_vel_callback(self, twist):
+        #twist 127 full forward, -127 full backward
         self.last_set_speed_time = rospy.get_rostime()
         m1 = twist.linear.x
         m2 = twist.linear.y
-        rospy.logdebug("speed m1:%d , m2:%d", m1, m2)
-
-        try:
-            if int(m1) is 0 and int(m2) is 0:
-                roboclaw.SpeedM1M2(self.address, 0,0)
-            else:
-                roboclaw.SpeedM1M2(self.address, int(m1), int(m2))
-                
-        except OSError as e:
-            rospy.logwarn("SpeedM1M2 on roboclaw1 OSError: %d", e.errno)
-            rospy.logdebug(e)
+        roboclaw.DutyM1M2(self.address,self.twist_to_duty(m1),self.twist_to_duty(m2))
+        rospy.loginfo("height m1:%d , m2:%d", m1, m2)
             
+    def twist_to_duty(self, twist):
+        return (twist / self.MAX_SPEED) * self.MAX_DUTY
 
     # TODO: Need to make this work when more than one error is raised
     def check_vitals(self, stat):
