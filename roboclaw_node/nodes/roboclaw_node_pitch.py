@@ -76,7 +76,7 @@ class Node:
         else:
             rospy.logdebug(repr(version[1]))
 
-        roboclaw.SpeedM1M2(self.address, 0, 0)
+        roboclaw.DutyM1M2(self.address, 0, 0)
         roboclaw.ResetEncoders(self.address)
 
 
@@ -105,8 +105,7 @@ class Node:
 
             if (rospy.get_rostime() - self.last_set_speed_time).to_sec() > 1:
                 try:
-                    roboclaw.ForwardM1(self.address, 0)
-                    roboclaw.ForwardM2(self.address, 0)
+                    roboclaw.DutyM1M2(self.address, 0,0)
                 except OSError as e:
                     rospy.logerr("Could not stop")
                     rospy.logdebug(e)
@@ -125,6 +124,7 @@ class Node:
             pitch_state.name = ['m1', 'm2']
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
+
             pitch_state.position = [float(enc1[1]),float(enc2[1])]
             self.pitch_pub.publish(pitch_state)
             print(enc1,enc2)
