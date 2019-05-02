@@ -39,7 +39,7 @@ class Node:
         rospy.init_node("roboclaw_node_pitch")
         rospy.on_shutdown(self.shutdown)
         rospy.loginfo("Connecting to roboclaw")
-        dev_name = rospy.get_param("~dev", "/dev/ttyACM3") #may need to change the usb port
+        dev_name = rospy.get_param("~dev", "/dev/ttyACM2") #may need to change the usb port
 
         baud_rate = int(rospy.get_param("~baud", "38400")) #may need to change the baud rate. see roboclaw usermanual
 
@@ -79,7 +79,7 @@ class Node:
         roboclaw.SpeedM1M2(self.address, 0, 0)
         roboclaw.ResetEncoders(self.address)
 
-
+        self.writing = 0
         self.MAX_SPEED = float(rospy.get_param("~max_speed", "127"))
         self.MAX_DUTY = float(rospy.get_param("~max_duty", "32767"))
         
@@ -123,8 +123,10 @@ class Node:
             pitch_state.header = Header()
             pitch_state.header.stamp = rospy.Time.now()
             pitch_state.name = ['m1', 'm2']
+            self.writing = 1
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
+            self.writing = 0
             pitch_state.position = [float(enc1[1]),float(enc2[1])]
             self.pitch_pub.publish(pitch_state)
             print(enc1,enc2)
@@ -133,13 +135,14 @@ class Node:
     def cmd_vel_callback(self, twist):
         #twist 127 full forward, -127 full backward
         self.last_set_speed_time = rospy.get_rostime()
-        m1 = twist.linear.x
-        m2 = twist.linear.y
-        roboclaw.DutyM1M2(self.address,self.twist_to_duty(m1),self.twist_to_duty(m2))
+        m1 = int(twist.linear.x)
+        m2 = int(twist.linear.y)
+        if self.writing == 0:
+            roboclaw.DutyM1M2(self.address,self.twist_to_duty(m1),self.twist_to_duty(m2))
         rospy.loginfo("pitch m1:%d , m2:%d", m1, m2)
 
     def twist_to_duty(self, twist):
-        return (twist / self.MAX_SPEED) * self.MAX_DUTY
+        return int((twist / self.MAX_SPEED) * self.MAX_DUTY)
 
     # TODO: Need to make this work when more than one error is raised
     def check_vitals(self, stat):
