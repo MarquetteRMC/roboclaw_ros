@@ -135,7 +135,7 @@ class Node:
         rospy.loginfo("height m1:%d , m2:%d", m1, m2)
             
     def twist_to_duty(self, twist):
-        return (twist / self.MAX_SPEED) * self.MAX_DUTY
+        return int((twist / self.MAX_SPEED) * self.MAX_DUTY)
 
     # TODO: Need to make this work when more than one error is raised
     def check_vitals(self, stat):
