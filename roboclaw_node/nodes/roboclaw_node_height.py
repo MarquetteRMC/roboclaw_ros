@@ -59,7 +59,7 @@ class Node:
             rospy.logfatal("Could not connect to Roboclaw")
             rospy.logdebug(e)
             rospy.signal_shutdown("Could not connect to Roboclaw")
-
+        
         self.updater = diagnostic_updater.Updater()
         self.updater.setHardwareID("Roboclaw")
         self.updater.add(diagnostic_updater.FunctionDiagnosticTask("Vitals", self.check_vitals))
@@ -79,7 +79,7 @@ class Node:
         roboclaw.SpeedM1M2(self.address, 0, 0)
         roboclaw.ResetEncoders(self.address)
 
-
+        self.writing = 0
         self.MAX_SPEED = float(rospy.get_param("~max_speed", "127"))
         self.MAX_DUTY = float(rospy.get_param("~max_duty", "32767"))
 
@@ -120,8 +120,10 @@ class Node:
             height_state.header = Header()
             height_state.header.stamp = rospy.Time.now()
             height_state.name = ['m1', 'm2']
+            self.writing = 1
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
+            self.writing = 0
             height_state.position = [float(enc1[1]),float(enc2[1])]
             self.height_pub.publish(height_state)
             print(enc1, enc2)
@@ -131,7 +133,8 @@ class Node:
         self.last_set_speed_time = rospy.get_rostime()
         m1 = twist.linear.x
         m2 = twist.linear.y
-        roboclaw.DutyM1M2(self.address,self.twist_to_duty(m1),self.twist_to_duty(m2))
+        if self.writing == 0:
+            roboclaw.DutyM1M2(self.address,self.twist_to_duty(m1),self.twist_to_duty(m2))
         rospy.loginfo("height m1:%d , m2:%d", m1, m2)
             
     def twist_to_duty(self, twist):
