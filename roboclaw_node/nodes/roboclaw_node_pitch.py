@@ -39,7 +39,7 @@ class Node:
         rospy.init_node("roboclaw_node_pitch")
         rospy.on_shutdown(self.shutdown)
         rospy.loginfo("Connecting to roboclaw")
-        dev_name = rospy.get_param("~dev", "/dev/ttyACM2") #may need to change the usb port
+        dev_name = rospy.get_param("~dev", "/dev/ttyACM3") #may need to change the usb port
 
         baud_rate = int(rospy.get_param("~baud", "38400")) #may need to change the baud rate. see roboclaw usermanual
 
