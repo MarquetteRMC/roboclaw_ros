@@ -8,12 +8,16 @@ import diagnostic_updater
 import roboclaw_driver.roboclaw_driver as roboclaw
 import rospy
 import tf
+import signal
 from geometry_msgs.msg import Quaternion, Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Header
 
 __author__ = "bwbazemore@uga.edu (Brad Bazemore)"
+
+def timeout_handler(signum, frame):
+    raise Exception("serial write hanging")
 
 class Node:
     def __init__(self):
@@ -35,13 +39,13 @@ class Node:
                        0x2000: (diagnostic_msgs.msg.DiagnosticStatus.WARN, "Temperature2"),
                        0x4000: (diagnostic_msgs.msg.DiagnosticStatus.OK, "M1 home"),
                        0x8000: (diagnostic_msgs.msg.DiagnosticStatus.OK, "M2 home")}
-
+        
         rospy.init_node("roboclaw_node_height")
         rospy.on_shutdown(self.shutdown)
         rospy.loginfo("Connecting to roboclaw")
-        dev_name = rospy.get_param("~dev", "/dev/ttyACM2") #may need to change the usb port
+        self.dev_name = rospy.get_param("~dev", "/dev/ttyACM2") #may need to change the usb port
 
-        baud_rate = int(rospy.get_param("~baud", "38400")) #may need to change the baud rate. see roboclaw usermanual
+        self.baud_rate = int(rospy.get_param("~baud", "38400")) #may need to change the baud rate. see roboclaw usermanual
 
         self.address = int(rospy.get_param("~address", "129")) #roboclaw is current setup to use address 128 which is setting 7
 
@@ -53,8 +57,7 @@ class Node:
         
         # TODO need someway to check if address is correct
         try:
-            roboclaw.Open(dev_name, baud_rate)
-
+            roboclaw.Open(self.dev_name, self.baud_rate)
         except Exception as e:
             rospy.logfatal("Could not connect to Roboclaw")
             rospy.logdebug(e)
@@ -79,63 +82,62 @@ class Node:
         roboclaw.SpeedM1M2(self.address, 0, 0)
         roboclaw.ResetEncoders(self.address)
 
-        self.writing = 0
         self.MAX_SPEED = float(rospy.get_param("~max_speed", "127"))
         self.MAX_DUTY = float(rospy.get_param("~max_duty", "32767"))
 
         self.last_set_speed_time = rospy.get_rostime()
 
-        rospy.Subscriber("roboclaw/height_vel", Twist, self.cmd_vel_callback)
+        self.height_vel_sub = rospy.Subscriber("roboclaw/height_vel", Twist, self.cmd_vel_callback)
         self.height_pub = rospy.Publisher("roboclaw/height", JointState, queue_size=10)
-
+        
+        self.m1_duty = 0
+        self.m2_duty = 0
+        
         rospy.sleep(1)
 
-        rospy.loginfo("dev %s", dev_name)
-        rospy.loginfo("baud %d", baud_rate)
+        rospy.loginfo("dev %s", self.dev_name)
+        rospy.loginfo("baud %d", self.baud_rate)
         rospy.loginfo("address %d", self.address)
         rospy.loginfo("max_speed %f", self.MAX_SPEED)
 
     def run(self):
         rospy.loginfo("Starting motor drive")
         r_time = rospy.Rate(5)
+        signal.signal(signal.SIGALRM, timeout_handler)
+        
         while not rospy.is_shutdown():
-
-            if (rospy.get_rostime() - self.last_set_speed_time).to_sec() > 1:
-                try:
-                    roboclaw.ForwardM1(self.address, 0)
-                    roboclaw.ForwardM2(self.address, 0)
-                except OSError as e:
-                    rospy.logerr("Could not stop")
-                    rospy.logdebug(e)
-
-            status1 = None
-            status2 = None
-
-            self.pub_enc_values()
+            signal.setitimer(signal.ITIMER_REAL, 0.21, 0)
             
-            r_time.sleep()
+            try:
+                if (rospy.get_rostime() - self.last_set_speed_time).to_sec() > 0.3:
+                    self.m1_duty = 0
+                    self.m2_duty = 0
+                roboclaw.DutyM1M2(self.address,self.m1_duty,self.m2_duty)
+                self.pub_enc_values()
+                r_time.sleep()
+                
+            except Exception as e:
+                rospy.loginfo(e)
 
     def pub_enc_values(self):
             height_state = JointState()
             height_state.header = Header()
             height_state.header.stamp = rospy.Time.now()
             height_state.name = ['m1', 'm2']
-            self.writing = 1
             enc1 = roboclaw.ReadEncM1(self.address)
             enc2 = roboclaw.ReadEncM2(self.address)
-            self.writing = 0
             height_state.position = [float(enc1[1]),float(enc2[1])]
-            self.height_pub.publish(height_state)
-            print(enc1, enc2)
+            try:
+                self.height_pub.publish(height_state)
+            except Exception as e:
+                rospy.loginfo("hanging")
+                rospy.logdebug(e)
 
     def cmd_vel_callback(self, twist):
         #twist 127 full forward, -127 full backward
-        self.last_set_speed_time = rospy.get_rostime()
-        m1 = twist.linear.x
-        m2 = twist.linear.y
-        if self.writing == 0:
-            roboclaw.DutyM1M2(self.address,self.twist_to_duty(m1),self.twist_to_duty(m2))
-        rospy.loginfo("height m1:%d , m2:%d", m1, m2)
+        self.last_set_speed_time = rospy.get_rostime() 
+        self.m1_duty = self.twist_to_duty(twist.linear.x)
+        self.m2_duty = self.twist_to_duty(twist.linear.y)
             
     def twist_to_duty(self, twist):
         return int((twist / self.MAX_SPEED) * self.MAX_DUTY)
@@ -165,6 +167,7 @@ class Node:
     # TODO: need clean shutdown so motors stop even if new msgs are arriving
     def shutdown(self):
         rospy.loginfo("Shutting down")
+        self.height_vel_sub.unregister()
         try:
             roboclaw.ForwardM1(self.address, 0)
             roboclaw.ForwardM2(self.address, 0)
